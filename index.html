@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Builder</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #fff;
+    color: #111;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid #ebebeb;
+    flex-shrink: 0;
+}
+#header h1 { font-size: 16px; font-weight: 600; }
+
+.ibtn {
+    width: 36px; height: 36px;
+    border: none; background: #f5f5f5;
+    border-radius: 8px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+}
+.ibtn:hover { background: #e8e8e8; }
+.ibtn svg { width: 18px; height: 18px; }
+
+#messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.msg {
+    padding: 12px 16px;
+    border-radius: 14px;
+    font-size: 14px;
+    line-height: 1.6;
+    max-width: 88%;
+    white-space: pre-wrap;
+    word-break: break-word;
+    flex-shrink: 0;
+}
+.msg.user {
+    align-self: flex-end;
+    background: #111;
+    color: #fff;
+    border-bottom-right-radius: 4px;
+}
+.msg.ai {
+    align-self: flex-start;
+    background: #f4f4f4;
+    border-bottom-left-radius: 4px;
+}
+
+.think-panel {
+    align-self: flex-start;
+    width: 100%;
+    border: 1px solid #e8e8e8;
+    border-radius: 14px;
+    overflow: hidden;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+.think-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #fafafa;
+    border-bottom: 1px solid #e8e8e8;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+}
+.think-head .chevron { transition: transform .2s; flex-shrink: 0; }
+.think-head.open .chevron { transform: rotate(180deg); }
+
+.think-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    max-height: 260px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.think-body.collapsed { display: none; }
+
+.t-step {
+    padding: 8px 12px;
+    background: #fff;
+    border-radius: 8px;
+    border-left: 3px solid #ddd;
+    font-size: 12px;
+    line-height: 1.5;
+    flex-shrink: 0;
+    word-break: break-word;
+}
+.t-step.ok  { border-left-color: #22c55e; }
+.t-step.err { border-left-color: #ef4444; }
+.t-step.run { border-left-color: #f59e0b; }
+.t-step.txt {
+    border-left-color: #6366f1;
+    background: #fafbff;
+    white-space: pre-wrap;
+    color: #333;
+}
+.t-step img {
+    max-width: 100%;
+    border-radius: 6px;
+    margin-top: 6px;
+    display: block;
+    cursor: pointer;
+}
+
+.code-wrap {
+    width: 100%;
+    border: 1px solid #e0e0e0;
+    border-radius: 14px;
+    overflow: hidden;
+    align-self: flex-start;
+    flex-shrink: 0;
+}
+.code-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #fafafa;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 13px;
+    font-weight: 600;
+    gap: 8px;
+}
+.code-head > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.code-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.code-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 6px 12px;
+    border: none; border-radius: 7px;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: background .15s; white-space: nowrap;
+}
+.code-btn.copy { background: #f0f0f0; color: #111; }
+.code-btn.copy:hover { background: #e0e0e0; }
+.code-btn.run  { background: #111; color: #fff; }
+.code-btn.run:hover { background: #333; }
+.code-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+.code-pre {
+    padding: 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 11.5px; line-height: 1.6;
+    white-space: pre; overflow-x: auto;
+    max-height: 320px; overflow-y: auto;
+    background: #fff; color: #222;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ── FULLSCREEN PREVIEW ── */
+#fullscreen-preview {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: #fff;
+    flex-direction: column;
+}
+#fullscreen-preview.open { display: flex; }
+#preview-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: #111;
+    color: #fff;
+    flex-shrink: 0;
+}
+#preview-bar span { font-size: 13px; font-weight: 600; }
+#preview-bar-btns { display: flex; gap: 8px; }
+.pbar-btn {
+    width: 32px; height: 32px;
+    border: none;
+    background: rgba(255,255,255,0.15);
+    border-radius: 7px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    transition: background .15s;
+}
+.pbar-btn:hover { background: rgba(255,255,255,0.25); }
+.pbar-btn svg { width: 16px; height: 16px; }
+#preview-iframe {
+    flex: 1;
+    border: none;
+    width: 100%;
+}
+
+/* ── IMAGE MODAL ── */
+#img-modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.88); z-index: 999;
+    align-items: center; justify-content: center; padding: 20px;
+}
+#img-modal.open { display: flex; }
+#img-modal img { max-width: 100%; max-height: 90vh; border-radius: 8px; object-fit: contain; }
+#modal-close {
+    position: absolute; top: 16px; right: 16px;
+    width: 36px; height: 36px; background: #fff;
+    border: none; border-radius: 50%; font-size: 20px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+}
+
+/* ── SANDBOX CACHÉ ── */
+#sandbox {
+    position: fixed; top: -9999px; left: -9999px;
+    width: 390px; height: 844px; border: none; visibility: hidden;
+}
+
+/* ── INPUT ── */
+#input-bar {
+    display: flex; align-items: flex-end; gap: 8px;
+    padding: 12px 16px; border-top: 1px solid #ebebeb; flex-shrink: 0;
+}
+#user-input {
+    flex: 1; padding: 12px 16px;
+    border: 1px solid #e0e0e0; border-radius: 22px;
+    font-size: 14px; font-family: inherit;
+    resize: none; outline: none; line-height: 1.4;
+    max-height: 120px; overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+#user-input:focus { border-color: #111; }
+#send-btn {
+    width: 44px; height: 44px;
+    border: none; background: #111; color: #fff;
+    border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: background .15s;
+}
+#send-btn:hover { background: #333; }
+#send-btn:disabled { background: #ccc; cursor: not-allowed; }
+#send-btn svg { width: 18px; height: 18px; }
+
+/* ── TOAST ── */
+#toast {
+    position: fixed;
+    bottom: 80px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #111; color: #fff;
+    padding: 8px 18px; border-radius: 20px;
+    font-size: 13px; font-weight: 600;
+    opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    z-index: 998;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div id="header">
+    <h1>🤖 AI Builder</h1>
+    <button class="ibtn" id="new-btn" title="Nouvelle conversation">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <polyline points="1 4 1 10 7 10"/>
+            <path d="M3.51 15a9 9 0 1 0 .49-4.95"/>
+        </svg>
+    </button>
+</div>
+
+<div id="messages"></div>
+
+<div id="input-bar">
+    <textarea id="user-input" rows="1" placeholder="Décris ton application ou continue la conversation..."></textarea>
+    <button id="send-btn">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+    </button>
+</div>
+
+<iframe id="sandbox"></iframe>
+
+<div id="fullscreen-preview">
+    <div id="preview-bar">
+        <span>▶ Aperçu</span>
+        <div id="preview-bar-btns">
+            <button class="pbar-btn" id="preview-reload-btn" title="Recharger">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <polyline points="1 4 1 10 7 10"/>
+                    <path d="M3.51 15a9 9 0 1 0 .49-4.95"/>
+                </svg>
+            </button>
+            <button class="pbar-btn" id="preview-close-btn" title="Fermer">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    <iframe id="preview-iframe" sandbox="allow-scripts allow-forms allow-same-origin allow-modals allow-popups"></iframe>
+</div>
+
+<div id="img-modal">
+    <button id="modal-close">×</button>
+    <img id="modal-img" src="">
+</div>
+
+<div id="toast">✓ Copié !</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+
+// ═══════════════════════════════════════════════════
+//  CLÉS API
+// ═══════════════════════════════════════════════════
+const KEYS = {
+    google:   'GOOGLE_API_KEY',
+    cerebras: 'CEREBRAS_API_KEY',
+    groq:     'GROQ_API_KEY',
+    mistral:  'MISTRAL_API_KEY'
+};
+
+// ═══════════════════════════════════════════════════
+//  MODÈLES
+// ═══════════════════════════════════════════════════
+const MODELS_CREATE = [
+    { provider: 'cerebras', model: 'qwen-3-235b-a22b-instruct-2507' },
+    { provider: 'google',   model: 'gemini-3-flash-preview' },
+    { provider: 'google',   model: 'gemma-4-31b-it' },
+    { provider: 'google',   model: 'gemini-2.5-flash' },
+    { provider: 'groq',     model: 'meta-llama/llama-4-maverick-17b-128e-instruct' },
+    { provider: 'mistral',  model: 'codestral-latest' }
+];
+
+const MODELS_DEBUG = [
+    { provider: 'google',   model: 'gemini-3-flash-preview' },
+    { provider: 'google',   model: 'gemini-2.5-flash' },
+    { provider: 'google',   model: 'gemma-4-31b-it' },
+    { provider: 'groq',     model: 'meta-llama/llama-4-maverick-17b-128e-instruct' },
+    { provider: 'mistral',  model: 'pixtral-large-latest' }
+];
+
+// ═══════════════════════════════════════════════════
+//  SYSTEM PROMPT — COMPLET x10
+// ═══════════════════════════════════════════════════
+const SYSTEM_PROMPT = `You are an autonomous AI software developer. You live inside a sandboxed HTML execution environment. Your job is to write, run, debug, and interact with HTML/CSS/JavaScript applications entirely on your own, using a structured command protocol. You are the developer AND the tester. You must think step by step, execute commands, observe results, and iterate until the application works perfectly.
+
+ALWAYS reply in the same language as the user's message. If the user writes in French, you reply in French. If the user writes in English, you reply in English.
+
+CRITICAL — MEMORY & CONVERSATION:
+You have full memory of the entire conversation. The user may ask you to modify, improve, or fix a previously generated app. When that happens, the current code is available in your context under [CURRENT CODE]. Use it directly with read_code or edit_lines. Do NOT recreate from scratch unless the user explicitly asks for something completely new.
+
+CRITICAL — YOU MUST ALWAYS USE A COMMANDS BLOCK:
+Even for the simplest modification (changing one word, one color, one number), you MUST use a commands block. You can NEVER just say "I changed it" without actually executing the commands. If you don't use a commands block, NOTHING changes in the real sandbox. Always: read_code first → then edit_lines → then screenshot to verify → then insert_html_file_last.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — HOW THE ENVIRONMENT WORKS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You have access to a hidden iframe sandbox. When you write HTML code, it gets loaded into this iframe and executed in real time. You cannot see the iframe directly — instead, you use commands to interact with it and receive feedback.
+
+Here is the full feedback loop:
+1. You send a \`\`\`commands block with one or more commands.
+2. The system executes each command in order and sends you back the results.
+3. You analyze the results and send a new \`\`\`commands block.
+4. This loop continues until you are satisfied and call end_think + insert_html_file_last.
+
+You have a maximum of 20 command rounds per user message.
+
+VERY IMPORTANT: The sandbox is REAL. Your commands actually execute. If you say "I changed line 42" but you did not include a commands block with edit_lines 42-42 "...", then line 42 was NOT changed. The user can see the code. Do not lie about executing commands.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — COMMAND BLOCK FORMAT (CRITICAL — READ CAREFULLY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ALL commands MUST be placed inside a markdown code block labeled exactly "commands" (lowercase). One command per line. No extra text inside the block. No comments. No explanations inside the block.
+
+CORRECT FORMAT — this is the ONLY accepted format:
+\`\`\`commands
+read_code
+screenshot
+\`\`\`
+
+WRONG — unlabeled block (will be ignored):
+\`\`\`
+read_code
+screenshot
+\`\`\`
+
+WRONG — commands in plain text (will be ignored):
+read_code
+screenshot
+
+WRONG — multiple commands blocks in one message (merge them into one):
+\`\`\`commands
+read_code
+\`\`\`
+\`\`\`commands
+screenshot
+\`\`\`
+
+For set_code, the HTML goes in a SEPARATE block labeled "html" immediately after the commands block:
+\`\`\`commands
+set_code
+read_log
+screenshot
+\`\`\`
+\`\`\`html
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My App</title>
+</head>
+<body>
+<h1>Hello</h1>
+</body>
+</html>
+\`\`\`
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — EDIT_LINES FORMAT (CRITICAL — THIS IS WHERE BUGS HAPPEN)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The edit_lines command has a STRICT format. Follow it exactly or the edit will fail silently.
+
+FORMAT: edit_lines A-B "content"
+
+Rules:
+- A and B are line numbers (integers). A-B replaces lines A through B inclusive.
+- To replace a single line: edit_lines 42-42 "new content"
+- The content MUST be on the SAME LINE as the command, after a space and inside double quotes.
+- To include a newline in the content, use the literal characters backslash-n: \\n
+- Do NOT put the content on a separate line. Do NOT omit the quotes.
+
+CORRECT examples:
+edit_lines 42-42 "    <h1>Bonjour le monde</h1>"
+edit_lines 10-12 "  color: blue;\\n  font-size: 16px;\\n  font-weight: bold;"
+edit_lines 55-55 "const titre = 'Mon Application';"
+
+WRONG — content on separate line (will fail):
+edit_lines 42-42
+"    <h1>Bonjour le monde</h1>"
+
+WRONG — no quotes (will fail):
+edit_lines 42-42     <h1>Bonjour le monde</h1>
+
+WRONG — real newline inside content (will fail, use \\n instead):
+edit_lines 10-12 "  color: blue;
+  font-size: 16px;"
+
+Always call read_code BEFORE edit_lines to get the exact current line numbers. Line numbers shift every time you edit, so always re-read before editing again.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 — ALL AVAILABLE COMMANDS (FULL REFERENCE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+─── READ COMMANDS ───────────────────────────────────
+These return information to you. They do NOT modify anything.
+
+▸ read_code
+  Returns the full current source code with line numbers.
+  Format: "   1 | <!DOCTYPE html>"
+  ALWAYS call this before any edit to get current line numbers.
+  Response format:
+    [CODE]
+       1 | <!DOCTYPE html>
+       2 | <html>
+       ...
+
+▸ read_log
+  Returns all console.log / console.warn / console.error / window.onerror since last reload.
+  Returns "No errors." if clean.
+  ALWAYS call after set_code or after edits to catch JS errors.
+  Response format:
+    [CONSOLE]
+    [ERROR] Cannot read property of undefined (line 42)
+    [LOG] "initialized"
+
+▸ search_code "text"
+  Finds all lines containing the given text (case-sensitive).
+  Returns numbered results stored as search_N (N increments each call).
+  Use the results with edit_result_N.
+  Response format:
+    [SEARCH_1]
+    1. L.14   <button onclick="doSomething()">Click</button>
+    2. L.38   <div onclick="toggle()">Menu</div>
+
+─── WRITE COMMANDS ──────────────────────────────────
+All write commands in one round are applied ATOMICALLY — one single page reload after all of them.
+
+▸ set_code
+  Replaces the ENTIRE source. The HTML goes in the \`\`\`html block right after.
+  Use for first creation or complete rewrite.
+  Always follow with read_log and screenshot in same round.
+
+▸ edit_lines A-B "content"
+  Replaces lines A through B with content. Content on same line, in double quotes.
+  Use \\n for newlines inside content.
+  ALWAYS call read_code first to know current line numbers.
+  Multiple edit_lines in same round = applied in descending order automatically (no offset bug).
+
+▸ edit_result_N n°X "content"
+  Replaces the line returned as result X from search N.
+  Example: edit_result_1 n°2 "new line" replaces the 2nd result from first search_code call.
+  Content on same line, in double quotes.
+
+─── INTERACT COMMANDS ───────────────────────────────
+Executed sequentially. Short delay between each.
+
+▸ click "#css-selector"
+  Clicks element matching CSS selector.
+  Examples: click "#btn" / click ".item" / click "button" / click "input[type=checkbox]"
+
+▸ click "CellXN"
+  Clicks at grid position. Always call screenshot_grid first to identify cells.
+  Examples: click "CellA1" / click "CellM10" / click "CellZ26"
+
+▸ type "#css-selector" "text"
+  Sets value of input or textarea. Fires input and change events.
+  Examples: type "#search" "hello" / type "textarea" "my message"
+
+▸ scroll "up"|"down" pixels
+  Scrolls the sandbox page.
+  Examples: scroll "down" 300 / scroll "up" 500
+
+▸ wait milliseconds
+  Waits before next command. Use after animations or async operations.
+  Examples: wait 500 / wait 2000
+
+─── CAPTURE COMMANDS ────────────────────────────────
+
+▸ screenshot
+  Captures the 390x844px viewport. Returns image you can analyze.
+  Use after every code change to verify visually.
+
+▸ screenshot_full
+  Captures the entire page (full scroll height). Use to see off-screen content.
+
+▸ screenshot_grid
+  Captures viewport with red A-Z / 1-N grid overlay.
+  ALWAYS use before click "CellXN" to identify which cell to click.
+  Workflow: screenshot_grid → identify cell from image → click "CellXN" → screenshot
+
+─── END COMMAND ─────────────────────────────────────
+
+▸ end_think
+  Signals you are done with the thinking/execution phase.
+  Must be followed (outside the commands block) by your message and insert_html_file_last.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 — THE GRID SYSTEM (DETAILED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The grid overlays a coordinate system on the screenshot image.
+
+Rules:
+- Always 26 columns, labeled A (leftmost) to Z (rightmost).
+- Cell width = image width / 26.
+- Cell height = cell width (always square cells).
+- Row count = round(image height / cell height).
+- Reference format: "CellF14" = column F, row 14.
+
+When to use:
+- When you need to click something but don't know its CSS selector.
+- When clicking on a canvas element.
+- When verifying visual position of elements.
+
+Standard grid workflow:
+1. \`\`\`commands
+   screenshot_grid
+   \`\`\`
+   → You receive image with red grid overlay.
+2. Look at the image. Find the element you want to interact with.
+3. Read the cell label (e.g., button is at column E, row 7).
+4. \`\`\`commands
+   click "CellE7"
+   wait 300
+   screenshot
+   \`\`\`
+5. Verify result in screenshot.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 6 — STANDARD WORKFLOWS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WORKFLOW A — Creating a new app from scratch:
+Round 1:
+\`\`\`commands
+set_code
+read_log
+screenshot
+\`\`\`
+\`\`\`html
+(complete HTML document here)
+\`\`\`
+→ If no errors and layout correct → go to end_think.
+→ If errors or issues → continue.
+
+Round 2:
+\`\`\`commands
+read_code
+\`\`\`
+Round 3:
+\`\`\`commands
+edit_lines 42-42 "fixed line"
+screenshot
+read_log
+\`\`\`
+
+WORKFLOW B — Modifying existing code (MOST COMMON CASE):
+The user asks to change something. You MUST follow this exact workflow:
+
+Step 1 — Read the code to find the exact line:
+\`\`\`commands
+read_code
+\`\`\`
+
+Step 2 — Edit the specific line(s) and verify:
+\`\`\`commands
+edit_lines 124-124 "    <h1>Nouveau titre</h1>"
+screenshot
+read_log
+\`\`\`
+
+Step 3 — Deliver:
+\`\`\`commands
+end_think
+\`\`\`
+J'ai modifié le titre à la ligne 124. Voici le code mis à jour.
+insert_html_file_last
+
+You CANNOT skip step 1. You CANNOT say "I changed it" without steps 1 and 2.
+
+WORKFLOW C — Testing interactivity:
+\`\`\`commands
+screenshot_grid
+\`\`\`
+\`\`\`commands
+click "CellD5"
+wait 500
+screenshot
+\`\`\`
+\`\`\`commands
+type "#input" "test value"
+click "#submit"
+wait 300
+screenshot
+\`\`\`
+
+WORKFLOW D — Debugging:
+\`\`\`commands
+read_log
+search_code "addEventListener"
+\`\`\`
+\`\`\`commands
+edit_result_1 n°2 "corrected line"
+screenshot
+read_log
+\`\`\`
+
+WORKFLOW E — Search and replace:
+\`\`\`commands
+search_code "old text"
+\`\`\`
+\`\`\`commands
+edit_result_1 n°1 "new text replacing old text"
+screenshot
+\`\`\`
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 7 — RULES (STRICT)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+RULE 1 — ALWAYS use a commands block to make changes.
+You cannot change anything by writing about it. Only commands block actually execute.
+Even for a one-word change: read_code → edit_lines → screenshot → insert_html_file_last.
+
+RULE 2 — ALWAYS read_code before editing.
+Line numbers shift after every edit. Never assume line numbers from memory.
+Always call read_code in the round BEFORE you edit.
+
+RULE 3 — Batch ALL edits in one round.
+Put all edit_lines for a session in the same commands block.
+Applied in descending line order automatically to prevent offset bugs.
+
+RULE 4 — Always screenshot after edits.
+Visual verification is mandatory. Add screenshot (and read_log) to every write round.
+
+RULE 5 — Fix console errors before continuing.
+If read_log shows errors, fix them immediately. Don't proceed with a broken app.
+
+RULE 6 — Single-file HTML only.
+All CSS in <style> tag. All JS in <script> tag. No external files except CDN scripts.
+
+RULE 7 — Mobile-first design.
+Sandbox is 390px wide (iPhone). Use relative units. Include viewport meta tag.
+
+RULE 8 — Minimal clean UI.
+White background. No unnecessary decoration. Goal is working logic, not polish.
+
+RULE 9 — Max 20 rounds.
+Be efficient. Most tasks: 2-4 rounds. Aim for precision, not volume.
+
+RULE 10 — End properly every time.
+When done: end_think command → your message to user → insert_html_file_last.
+Never deliver without insert_html_file_last.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 8 — FINAL OUTPUT FORMAT (EXACT)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your final message MUST follow this exact format:
+
+\`\`\`commands
+end_think
+\`\`\`
+
+Your message to the user in their language. Describe what you did, what you tested, any notes.
+
+insert_html_file_last
+
+Example for a modification:
+\`\`\`commands
+end_think
+\`\`\`
+
+J'ai modifié le titre "Bienvenue" en "Bonjour" à la ligne 124. J'ai vérifié visuellement avec un screenshot que le changement est bien visible. Le reste de l'application est inchangé.
+
+insert_html_file_last
+
+Example for a new app:
+\`\`\`commands
+end_think
+\`\`\`
+
+Voici ta calculatrice ! Elle supporte les 4 opérations de base. J'ai testé les additions, soustractions, multiplications et la division (avec gestion de la division par zéro). Design épuré optimisé mobile.
+
+insert_html_file_last
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 9 — WHAT YOU MUST NEVER DO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✗ NEVER say "I changed X" without a commands block that actually contains edit_lines or set_code.
+✗ NEVER put commands outside a \`\`\`commands block.
+✗ NEVER put the HTML inside the commands block (separate \`\`\`html block).
+✗ NEVER use edit_lines without calling read_code first in this session.
+✗ NEVER put edit_lines content on a separate line — it must be inline after the command.
+✗ NEVER omit the double quotes around edit_lines content.
+✗ NEVER ignore console errors.
+✗ NEVER use multi-file setups or external JS files.
+✗ NEVER end a session without insert_html_file_last.
+✗ NEVER write more than one \`\`\`commands block per message.
+✗ NEVER recreate an app from scratch when the user asks for a modification.
+✗ NEVER assume line numbers — always read_code to verify them.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 10 — QUICK CHEAT SHEET
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+READ:
+  read_code                              → full numbered source
+  read_log                               → console + errors
+  search_code "text"                     → find lines with text → search_N results
+
+WRITE (atomic, all in one commands block):
+  set_code                               → replace all (html in next block)
+  edit_lines A-B "content"              → replace lines A-B, content INLINE in quotes
+  edit_result_N n°X "content"           → replace result X from search N
+
+INTERACT:
+  click "#selector"                      → click by CSS selector
+  click "CellF7"                         → click at grid cell (use screenshot_grid first)
+  type "#selector" "text"               → type into input
+  scroll "down" 300                     → scroll sandbox
+  wait 1000                             → wait 1 second
+
+CAPTURE:
+  screenshot                            → viewport 390x844
+  screenshot_full                       → full page height
+  screenshot_grid                       → viewport + A-Z/1-N red grid
+
+END:
+  end_think                             → done, ready to deliver
+
+MODIFICATION WORKFLOW (mandatory):
+  Round 1: read_code
+  Round 2: edit_lines X-X "new content" + screenshot + read_log
+  Round 3: end_think → message → insert_html_file_last`;
+
+// ═══════════════════════════════════════════════════
+//  ÉTAT GLOBAL PERSISTANT
+// ═══════════════════════════════════════════════════
+let CONVERSATION = [
+    { role: 'system', content: SYSTEM_PROMPT }
+];
+
+let STATE = {
+    code: '',
+    searchCache: {},
+    searchCount: 0,
+    consoleLogs: [],
+    phase: 'create'
+};
+
+function hardReset() {
+    CONVERSATION = [{ role: 'system', content: SYSTEM_PROMPT }];
+    STATE = { code: '', searchCache: {}, searchCount: 0, consoleLogs: [], phase: 'create' };
+    sandbox.srcdoc = '';
+    document.getElementById('messages').innerHTML = '';
+    addMsg('ai', 'Bonjour ! Décris-moi l\'application que tu veux créer. 🚀');
+}
+
+function resetRound() {
+    STATE.consoleLogs = [];
+    STATE.searchCache = {};
+    STATE.searchCount = 0;
+}
+
+// ═══════════════════════════════════════════════════
+//  API CALLS
+// ═══════════════════════════════════════════════════
+async function callGoogle(model, msgs, imgB64) {
+    const contents = [];
+    const sys = msgs.find(m => m.role === 'system');
+    if (sys) {
+        contents.push({ role: 'user',  parts: [{ text: sys.content }] });
+        contents.push({ role: 'model', parts: [{ text: 'Understood. I am ready.' }] });
+    }
+    for (const m of msgs) {
+        if (m.role === 'system') continue;
+        const role = m.role === 'assistant' ? 'model' : 'user';
+        contents.push({ role, parts: [{ text: m.content }] });
+    }
+    if (imgB64) {
+        const last = contents[contents.length - 1];
+        if (last.role === 'user') {
+            last.parts.push({ inline_data: { mime_type: 'image/png', data: imgB64 } });
+        }
+    }
+    const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${KEYS.google}`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents, generationConfig: { temperature: 0.7, maxOutputTokens: 8192 } })
+        }
+    );
+    if (!r.ok) { const e = await r.text(); throw new Error(`Google ${r.status}: ${e}`); }
+    const d = await r.json();
+    return d.candidates[0].content.parts.map(p => p.text || '').join('');
+}
+
+async function callCerebras(model, msgs) {
+    const r = await fetch('https://api.cerebras.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${KEYS.cerebras}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            model,
+            messages: msgs.map(m => ({ role: m.role, content: m.content })),
+            temperature: 0.7, max_tokens: 8192
+        })
+    });
+    if (!r.ok) { const e = await r.text(); throw new Error(`Cerebras ${r.status}: ${e}`); }
+    const d = await r.json();
+    return d.choices[0].message.content;
+}
+
+async function callGroq(model, msgs, imgB64) {
+    const messages = msgs.map((m, i) => {
+        const isLastUser = m.role === 'user' && i === msgs.length - 1;
+        if (imgB64 && isLastUser) {
+            return { role: 'user', content: [
+                { type: 'text', text: m.content },
+                { type: 'image_url', image_url: { url: `data:image/png;base64,${imgB64}` } }
+            ]};
+        }
+        return { role: m.role, content: m.content };
+    });
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${KEYS.groq}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 8192 })
+    });
+    if (!r.ok) { const e = await r.text(); throw new Error(`Groq ${r.status}: ${e}`); }
+    const d = await r.json();
+    return d.choices[0].message.content;
+}
+
+async function callMistral(model, msgs, imgB64) {
+    const messages = msgs.map((m, i) => {
+        const isLastUser = m.role === 'user' && i === msgs.length - 1;
+        if (imgB64 && isLastUser) {
+            return { role: 'user', content: [
+                { type: 'text', text: m.content },
+                { type: 'image_url', image_url: `data:image/png;base64,${imgB64}` }
+            ]};
+        }
+        return { role: m.role, content: m.content };
+    });
+    const r = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${KEYS.mistral}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 8192 })
+    });
+    if (!r.ok) { const e = await r.text(); throw new Error(`Mistral ${r.status}: ${e}`); }
+    const d = await r.json();
+    return d.choices[0].message.content;
+}
+
+async function callAPI(provider, model, msgs, imgB64) {
+    if (provider === 'google')   return callGoogle(model, msgs, imgB64);
+    if (provider === 'cerebras') return callCerebras(model, msgs);
+    if (provider === 'groq')     return callGroq(model, msgs, imgB64);
+    if (provider === 'mistral')  return callMistral(model, msgs, imgB64);
+    throw new Error(`Provider inconnu: ${provider}`);
+}
+
+async function callWithFallback(modelList, msgs, imgB64, thinkBody) {
+    for (const { provider, model } of modelList) {
+        const stepEl = addStep(thinkBody, `⏳ ${provider} — ${model}`, 'run');
+        try {
+            const result = await callAPI(provider, model, msgs, imgB64);
+            updateStep(stepEl, `✅ ${provider} — ${model}`, 'ok');
+            return result;
+        } catch(e) {
+            updateStep(stepEl, `❌ ${provider} — ${model} : ${e.message}`, 'err');
+        }
+    }
+    throw new Error('Tous les providers ont échoué.');
+}
+
+// ═══════════════════════════════════════════════════
+//  SANDBOX
+// ═══════════════════════════════════════════════════
+const sandbox = document.getElementById('sandbox');
+
+function loadSandbox(html) {
+    STATE.consoleLogs = [];
+    const bridge = `<script>
+(function(){
+    const s=(l,a)=>window.parent.postMessage({type:'console',level:l,args:Array.from(a).map(x=>{try{return JSON.stringify(x)}catch(e){return String(x)}})}, '*');
+    ['log','warn','error','info'].forEach(l=>{const o=console[l];console[l]=function(){s(l,arguments);o.apply(console,arguments)};});
+    window.onerror=(m,_,r)=>{window.parent.postMessage({type:'console',level:'error',args:[m+' (line '+r+')']}, '*');};
+})();
+<\/script>`;
+    const injected = html.replace('<head>', '<head>' + bridge);
+    sandbox.srcdoc = injected;
+    STATE.code = html;
+    return new Promise(r => setTimeout(r, 900));
+}
+
+window.addEventListener('message', e => {
+    if (e.data?.type === 'console') {
+        STATE.consoleLogs.push(`[${e.data.level.toUpperCase()}] ${e.data.args.join(' ')}`);
+    }
+});
+
+async function doScreenshot(full = false) {
+    const doc = sandbox.contentDocument;
+    if (!doc?.body) throw new Error('Sandbox vide');
+    if (full) { sandbox.style.height = doc.body.scrollHeight + 'px'; await wait(300); }
+    const canvas = await html2canvas(doc.body, { useCORS: true, allowTaint: true, logging: false });
+    if (full) sandbox.style.height = '844px';
+    return canvas.toDataURL('image/png');
+}
+
+async function doScreenshotGrid() {
+    const dataUrl = await doScreenshot(false);
+    return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+            const c = document.createElement('canvas');
+            c.width = img.width; c.height = img.height;
+            const ctx = c.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const cols = 26;
+            const cellW = img.width / cols;
+            const rows = Math.round(img.height / cellW);
+            const cellH = img.height / rows;
+            ctx.strokeStyle = 'rgba(255,0,0,0.35)';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = 'rgba(255,0,0,0.85)';
+            ctx.font = `bold ${Math.max(9, Math.round(cellW * 0.32))}px monospace`;
+            for (let col = 0; col < cols; col++) {
+                const x = col * cellW;
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, img.height); ctx.stroke();
+                ctx.fillText(String.fromCharCode(65 + col), x + 2, 11);
+            }
+            for (let row = 0; row < rows; row++) {
+                const y = row * cellH;
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(img.width, y); ctx.stroke();
+                if (row > 0) ctx.fillText(String(row + 1), 2, y + 11);
+            }
+            resolve(c.toDataURL('image/png'));
+        };
+        img.src = dataUrl;
+    });
+}
+
+function cellToXY(cell) {
+    const m = cell.match(/Cell([A-Z])(\d+)/i);
+    if (!m) return null;
+    const doc = sandbox.contentDocument;
+    const w = doc.body.scrollWidth || 390;
+    const h = doc.body.scrollHeight || 844;
+    const cellW = w / 26;
+    const rows = Math.round(h / cellW);
+    const cellH = h / rows;
+    const col = m[1].toUpperCase().charCodeAt(0) - 65;
+    const row = parseInt(m[2]) - 1;
+    return { x: col * cellW + cellW / 2, y: row * cellH + cellH / 2 };
+}
+
+// ═══════════════════════════════════════════════════
+//  COMMAND PARSER — ROBUSTE
+//  Gère edit_lines même sans guillemets ou avec guillemets typographiques
+// ═══════════════════════════════════════════════════
+function parseCommands(raw) {
+    const result = [];
+    const lines = raw.split('\n');
+    let i = 0;
+    while (i < lines.length) {
+        const line = lines[i].trim();
+        if (!line) { i++; continue; }
+
+        // edit_lines A-B "content" — plusieurs variantes acceptées
+        if (line.startsWith('edit_lines')) {
+            // Variante 1 : edit_lines A-B "content" (format standard, tout sur une ligne)
+            let m = line.match(/^edit_lines\s+(\d+)-(\d+)\s+"([\s\S]+)"$/);
+            // Variante 2 : sans guillemets  edit_lines A-B content
+            if (!m) m = line.match(/^edit_lines\s+(\d+)-(\d+)\s+(.+)$/);
+            if (m) {
+                result.push({ cmd: 'edit_lines', from: parseInt(m[1]), to: parseInt(m[2]), content: m[3].replace(/\\n/g, '\n') });
+                i++;
+                continue;
+            }
+            // Variante 3 : contenu sur la ligne suivante (l'IA met parfois le contenu en dessous)
+            const mHeader = line.match(/^edit_lines\s+(\d+)-(\d+)\s*$/);
+            if (mHeader && i + 1 < lines.length) {
+                const nextLine = lines[i + 1].trim().replace(/^"|"$/g, '');
+                result.push({ cmd: 'edit_lines', from: parseInt(mHeader[1]), to: parseInt(mHeader[2]), content: nextLine.replace(/\\n/g, '\n') });
+                i += 2;
+                continue;
+            }
+            // Format non reconnu — log l'erreur
+            result.push({ cmd: 'edit_lines_error', raw: line });
+            i++;
+            continue;
+        }
+
+        // edit_result_N n°X "content"
+        if (line.startsWith('edit_result')) {
+            let m = line.match(/^edit_result_(\d+)\s+n[°o](\d+)\s+"([\s\S]+)"$/);
+            if (!m) m = line.match(/^edit_result_(\d+)\s+n[°o](\d+)\s+(.+)$/);
+            if (m) {
+                result.push({ cmd: 'edit_result', sid: parseInt(m[1]), num: parseInt(m[2]), content: m[3].replace(/\\n/g, '\n') });
+                i++;
+                continue;
+            }
+            result.push({ cmd: 'edit_result_error', raw: line });
+            i++;
+            continue;
+        }
+
+        // search_code "text" ou search_code text
+        if (line.startsWith('search_code')) {
+            const q = line.match(/search_code\s+"([^"]+)"/)?.[1]
+                   || line.replace(/^search_code\s*/, '').replace(/^"|"$/g, '').trim();
+            result.push({ cmd: 'search_code', query: q });
+            i++;
+            continue;
+        }
+
+        // click "target" ou click target
+        if (line.startsWith('click')) {
+            const target = line.replace(/^click\s+/, '').replace(/^"|"$/g, '').trim();
+            result.push({ cmd: 'click', target });
+            i++;
+            continue;
+        }
+
+        // type "selector" "text"
+        if (line.startsWith('type')) {
+            const m = line.match(/^type\s+"?([^"]+)"?\s+"(.+)"$/)
+                   || line.match(/^type\s+(\S+)\s+"(.+)"$/);
+            if (m) result.push({ cmd: 'type', selector: m[1].trim(), text: m[2] });
+            else result.push({ cmd: 'type_error', raw: line });
+            i++;
+            continue;
+        }
+
+        // scroll "direction" px
+        if (line.startsWith('scroll')) {
+            const m = line.match(/scroll\s+"?(\w+)"?\s+(\d+)/);
+            if (m) result.push({ cmd: 'scroll', direction: m[1], amount: parseInt(m[2]) });
+            i++;
+            continue;
+        }
+
+        // wait ms
+        if (line.startsWith('wait')) {
+            const ms = parseInt(line.replace('wait', '').trim()) || 500;
+            result.push({ cmd: 'wait', ms });
+            i++;
+            continue;
+        }
+
+        // Commandes simples
+        const simpleMap = {
+            'read_code': 'read_code',
+            'read_log': 'read_log',
+            'set_code': 'set_code',
+            'screenshot_full': 'screenshot_full',
+            'screenshot_grid': 'screenshot_grid',
+            'screenshot': 'screenshot',
+            'end_think': 'end_think'
+        };
+        if (simpleMap[line]) {
+            result.push({ cmd: simpleMap[line] });
+            i++;
+            continue;
+        }
+
+        // Commande inconnue
+        result.push({ cmd: 'unknown', raw: line });
+        i++;
+    }
+    return result;
+}
+
+// ═══════════════════════════════════════════════════
+//  COMMAND EXECUTOR
+// ═══════════════════════════════════════════════════
+async function executeCommands(cmdsRaw, htmlBlock, thinkBody) {
+    const parsed = parseCommands(cmdsRaw);
+    const feedback = [];
+    const edits = [];
+    let hasWrites = false;
+    let wantShot = false, shotFull = false, shotGrid = false;
+    let isEnd = false;
+
+    for (const cmd of parsed) {
+
+        if (cmd.cmd === 'read_code') {
+            const numbered = STATE.code.split('\n')
+                .map((l, i) => `${String(i+1).padStart(4,' ')} | ${l}`).join('\n');
+            addStep(thinkBody, `read_code — ${STATE.code.split('\n').length} lignes`, 'ok');
+            feedback.push({ type: 'read_code', data: numbered });
+
+        } else if (cmd.cmd === 'read_log') {
+            const logs = STATE.consoleLogs.length ? STATE.consoleLogs.join('\n') : 'No errors.';
+            addStep(thinkBody, `read_log — ${STATE.consoleLogs.length} entrée(s)`, 'ok');
+            feedback.push({ type: 'read_log', data: logs });
+
+        } else if (cmd.cmd === 'search_code') {
+            const codeLines = STATE.code.split('\n');
+            const results = [];
+            codeLines.forEach((cl, i) => {
+                if (cl.includes(cmd.query)) results.push({ line: i + 1, content: cl.trim() });
+            });
+            STATE.searchCount++;
+            const sid = STATE.searchCount;
+            STATE.searchCache[sid] = results;
+            const txt = results.length
+                ? results.map((r, i) => `${i+1}. L.${r.line}   ${r.content}`).join('\n')
+                : 'No matches.';
+            addStep(thinkBody, `search_code "${cmd.query}" → ${results.length} résultat(s) [search_${sid}]`, 'ok');
+            feedback.push({ type: 'search', id: sid, data: txt });
+
+        } else if (cmd.cmd === 'set_code') {
+            if (htmlBlock) {
+                edits.push({ type: 'set', html: htmlBlock });
+                hasWrites = true;
+                addStep(thinkBody, `set_code — ${htmlBlock.split('\n').length} lignes`, 'ok');
+            } else {
+                addStep(thinkBody, 'set_code — ⚠️ bloc html manquant', 'err');
+            }
+
+        } else if (cmd.cmd === 'edit_lines') {
+            edits.push({ type: 'lines', from: cmd.from, to: cmd.to, content: cmd.content });
+            hasWrites = true;
+            addStep(thinkBody, `edit_lines ${cmd.from}-${cmd.to} ✅`, 'ok');
+
+        } else if (cmd.cmd === 'edit_lines_error') {
+            addStep(thinkBody, `edit_lines — ⚠️ format non reconnu: ${cmd.raw}`, 'err');
+            feedback.push({ type: 'read_log', data: `[SYSTEM ERROR] edit_lines format invalid: "${cmd.raw}". Correct format: edit_lines A-B "content on same line"` });
+
+        } else if (cmd.cmd === 'edit_result') {
+            edits.push({ type: 'result', sid: cmd.sid, num: cmd.num, content: cmd.content });
+            hasWrites = true;
+            addStep(thinkBody, `edit_result_${cmd.sid} n°${cmd.num} ✅`, 'ok');
+
+        } else if (cmd.cmd === 'edit_result_error') {
+            addStep(thinkBody, `edit_result — ⚠️ format non reconnu: ${cmd.raw}`, 'err');
+
+        } else if (cmd.cmd === 'click') {
+            const doc = sandbox.contentDocument;
+            try {
+                if (/^Cell[A-Z]\d+$/i.test(cmd.target)) {
+                    const xy = cellToXY(cmd.target);
+                    if (xy) {
+                        const el = doc.elementFromPoint(xy.x, xy.y);
+                        if (el) el.click();
+                        addStep(thinkBody, `click ${cmd.target} → (${Math.round(xy.x)}, ${Math.round(xy.y)}) ✅`, 'ok');
+                    } else addStep(thinkBody, `click ${cmd.target} — ⚠️ cellule invalide`, 'err');
+                } else {
+                    const el = doc.querySelector(cmd.target);
+                    if (el) { el.click(); addStep(thinkBody, `click "${cmd.target}" ✅`, 'ok'); }
+                    else addStep(thinkBody, `click "${cmd.target}" — ⚠️ élément non trouvé`, 'err');
+                }
+            } catch(e) { addStep(thinkBody, `click ❌ ${e.message}`, 'err'); }
+            await wait(300);
+
+        } else if (cmd.cmd === 'type') {
+            try {
+                const el = sandbox.contentDocument.querySelector(cmd.selector);
+                if (el) {
+                    el.value = cmd.text;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                    addStep(thinkBody, `type "${cmd.selector}" → "${cmd.text}" ✅`, 'ok');
+                } else addStep(thinkBody, `type "${cmd.selector}" — ⚠️ non trouvé`, 'err');
+            } catch(e) { addStep(thinkBody, `type ❌ ${e.message}`, 'err'); }
+            await wait(200);
+
+        } else if (cmd.cmd === 'scroll') {
+            sandbox.contentWindow.scrollBy(0, cmd.direction === 'down' ? cmd.amount : -cmd.amount);
+            addStep(thinkBody, `scroll ${cmd.direction} ${cmd.amount}px ✅`, 'ok');
+            await wait(200);
+
+        } else if (cmd.cmd === 'wait') {
+            await wait(cmd.ms);
+            addStep(thinkBody, `wait ${cmd.ms}ms ✅`, 'ok');
+
+        } else if (cmd.cmd === 'screenshot_full')  { wantShot = true; shotFull = true; }
+        else if (cmd.cmd === 'screenshot_grid')    { wantShot = true; shotGrid = true; }
+        else if (cmd.cmd === 'screenshot')         { wantShot = true; }
+        else if (cmd.cmd === 'end_think')          { isEnd = true; addStep(thinkBody, 'end_think ✅', 'ok'); }
+        else if (cmd.cmd === 'unknown')            { addStep(thinkBody, `⚠️ Commande inconnue: "${cmd.raw}"`, 'err'); }
+    }
+
+    // ── Atomic writes ──
+    if (hasWrites) {
+        let codeArr = STATE.code.split('\n');
+        const setEdit = edits.find(e => e.type === 'set');
+        if (setEdit) codeArr = setEdit.html.split('\n');
+
+        // Result edits
+        for (const e of edits.filter(e => e.type === 'result')) {
+            const res = STATE.searchCache[e.sid];
+            if (res?.[e.num - 1]) {
+                codeArr[res[e.num - 1].line - 1] = e.content;
+            } else {
+                addStep(thinkBody, `edit_result_${e.sid} n°${e.num} — ⚠️ résultat introuvable`, 'err');
+            }
+        }
+
+        // Line edits — descending order to prevent offset
+        const lineEdits = edits.filter(e => e.type === 'lines').sort((a,b) => b.from - a.from);
+        for (const e of lineEdits) {
+            const before = codeArr.slice(0, e.from - 1);
+            const after  = codeArr.slice(e.to);
+            codeArr = [...before, ...e.content.split('\n'), ...after];
+        }
+
+        await loadSandbox(codeArr.join('\n'));
+        addStep(thinkBody, `✅ Code rechargé — ${codeArr.length} lignes`, 'ok');
+    }
+
+    // ── Screenshot ──
+    let screenshotB64 = null;
+    if (wantShot) {
+        try {
+            let dataUrl;
+            if (shotGrid)      dataUrl = await doScreenshotGrid();
+            else if (shotFull) dataUrl = await doScreenshot(true);
+            else               dataUrl = await doScreenshot(false);
+
+            screenshotB64 = dataUrl.split(',')[1];
+            const label = shotGrid ? 'screenshot_grid ✅' : shotFull ? 'screenshot_full ✅' : 'screenshot ✅';
+            const stepEl = addStep(thinkBody, label, 'ok');
+            const img = document.createElement('img');
+            img.src = dataUrl;
+            img.onclick = () => openModal(dataUrl);
+            stepEl.appendChild(img);
+            thinkBody.scrollTop = thinkBody.scrollHeight;
+        } catch(e) {
+            addStep(thinkBody, `screenshot ❌ ${e.message}`, 'err');
+        }
+    }
+
+    return { feedback, screenshotB64, isEnd };
+}
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ═══════════════════════════════════════════════════
+//  AGENT LOOP
+// ═══════════════════════════════════════════════════
+async function runAgent(userMsg) {
+    setSending(true);
+    addMsg('user', userMsg);
+    resetRound();
+
+    const isNewApp = STATE.code === '';
+    if (isNewApp) STATE.phase = 'create';
+
+    // Message utilisateur enrichi avec le code actuel si existant
+    let fullUserMsg = userMsg;
+    if (STATE.code && STATE.code.trim()) {
+        fullUserMsg = `${userMsg}\n\n[CURRENT CODE — ${STATE.code.split('\n').length} lines, already loaded in sandbox]\n${STATE.code}`;
+    }
+
+    CONVERSATION.push({ role: 'user', content: fullUserMsg });
+
+    const thinkBody = createThinkPanel();
+    const localMessages = [...CONVERSATION];
+    let round = 0;
+    let finalResponseSaved = false;
+
+    while (round < 20) {
+        round++;
+
+        const modelList = STATE.phase === 'create' ? MODELS_CREATE : MODELS_DEBUG;
+        let imgB64 = null;
+        if (STATE.phase === 'debug' && STATE.code) {
+            try { imgB64 = (await doScreenshot()).split(',')[1]; } catch(e) {}
+        }
+
+        let response;
+        try {
+            response = await callWithFallback(modelList, localMessages, imgB64, thinkBody);
+        } catch(e) {
+            addMsg('ai', '❌ ' + e.message);
+            break;
+        }
+
+        STATE.phase = 'debug';
+        localMessages.push({ role: 'assistant', content: response });
+
+        // Prose IA dans thinking panel
+        const prose = response
+            .replace(/```commands[\s\S]*?```/g, '')
+            .replace(/```html[\s\S]*?```/g, '')
+            .replace(/insert_html_file_last/g, '')
+            .trim();
+        if (prose) addTextStep(thinkBody, prose);
+
+        // Réponse finale avec insert_html_file_last
+        if (response.includes('insert_html_file_last')) {
+            const beforeTag = response.split('insert_html_file_last')[0]
+                .replace(/```commands[\s\S]*?```/g, '')
+                .replace(/```html[\s\S]*?```/g, '')
+                .trim();
+            if (beforeTag) addMsg('ai', beforeTag);
+            insertCodeBlock(STATE.code);
+            if (!finalResponseSaved) {
+                CONVERSATION.push({ role: 'assistant', content: response });
+                finalResponseSaved = true;
+            }
+            break;
+        }
+
+        // Extrait le bloc de commandes
+        const cmdMatch = response.match(/```commands?\n([\s\S]*?)```/);
+        if (!cmdMatch) {
+            // Pas de bloc de commandes — réponse directe sans action
+            const clean = response.replace(/```[\s\S]*?```/g,'').trim();
+            if (clean) addMsg('ai', clean);
+            if (!finalResponseSaved) {
+                CONVERSATION.push({ role: 'assistant', content: response });
+                finalResponseSaved = true;
+            }
+            break;
+        }
+
+        const cmdsRaw   = cmdMatch[1];
+        const htmlMatch = response.match(/```html\n([\s\S]*?)```/);
+        const htmlBlock = htmlMatch ? htmlMatch[1] : null;
+
+        const { feedback, screenshotB64, isEnd } = await executeCommands(cmdsRaw, htmlBlock, thinkBody);
+
+        if (isEnd) {
+            const afterCommands = response.split(/```commands[\s\S]*?```/).pop() || '';
+            const finalMsg = afterCommands.replace(/insert_html_file_last/g,'').trim();
+            if (finalMsg) addMsg('ai', finalMsg);
+            if (STATE.code) insertCodeBlock(STATE.code);
+            if (!finalResponseSaved) {
+                CONVERSATION.push({ role: 'assistant', content: response });
+                finalResponseSaved = true;
+            }
+            break;
+        }
+
+        // Feedback interne pour l'IA (round suivant)
+        const parts = [];
+        for (const f of feedback) {
+            if (f.type === 'read_code') parts.push(`[CODE]\n${f.data}`);
+            if (f.type === 'read_log')  parts.push(`[CONSOLE]\n${f.data}`);
+            if (f.type === 'search')    parts.push(`[SEARCH_${f.id}]\n${f.data}`);
+        }
+        if (screenshotB64) parts.push('[Screenshot attached]');
+        if (!parts.length)  parts.push('Commands executed. Continue.');
+
+        localMessages.push({ role: 'user', content: parts.join('\n\n') });
+        await wait(400);
+    }
+
+    if (round >= 20) {
+        addMsg('ai', '⚠️ Limite de 20 étapes atteinte.');
+    }
+
+    setSending(false);
+}
+
+// ═══════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════
+function addMsg(role, text) {
+    const d = document.createElement('div');
+    d.className = `msg ${role}`;
+    d.textContent = text;
+    document.getElementById('messages').appendChild(d);
+    scrollBottom();
+    return d;
+}
+
+function createThinkPanel() {
+    const id = `tb-${Date.now()}`;
+    const panel = document.createElement('div');
+    panel.className = 'think-panel';
+    panel.innerHTML = `
+        <div class="think-head open" id="th-${id}">
+            <span>💭 Processus IA</span>
+            <svg class="chevron" fill="none" stroke="currentColor" stroke-width="2"
+                 viewBox="0 0 24 24" width="16" height="16">
+                <polyline points="18 15 12 9 6 15"/>
+            </svg>
+        </div>
+        <div class="think-body" id="${id}"></div>
+    `;
+    panel.querySelector(`#th-${id}`).addEventListener('click', function() {
+        document.getElementById(id).classList.toggle('collapsed');
+        this.classList.toggle('open');
+    });
+    document.getElementById('messages').appendChild(panel);
+    scrollBottom();
+    return panel.querySelector(`#${id}`);
+}
+
+function addStep(container, text, status) {
+    const d = document.createElement('div');
+    d.className = `t-step ${status}`;
+    d.textContent = text;
+    container.appendChild(d);
+    container.scrollTop = container.scrollHeight;
+    scrollBottom();
+    return d;
+}
+
+function updateStep(el, text, status) {
+    el.className = `t-step ${status}`;
+    el.textContent = text;
+    const c = el.parentElement;
+    if (c) c.scrollTop = c.scrollHeight;
+    scrollBottom();
+}
+
+function addTextStep(container, text) {
+    const d = document.createElement('div');
+    d.className = 't-step txt';
+    d.textContent = text;
+    container.appendChild(d);
+    container.scrollTop = container.scrollHeight;
+    scrollBottom();
+}
+
+// ═══════════════════════════════════════════════════
+//  CODE BLOCK
+// ═══════════════════════════════════════════════════
+let currentPreviewCode = '';
+
+function insertCodeBlock(code) {
+    if (!code || !code.trim()) return;
+    const wrapId = `cw-${Date.now()}`;
+    const wrap = document.createElement('div');
+    wrap.className = 'code-wrap';
+    wrap.id = wrapId;
+    wrap.dataset.code = code;
+    wrap.innerHTML = `
+        <div class="code-head">
+            <span>📄 index.html <span style="color:#888;font-weight:400">${code.split('\n').length} lignes</span></span>
+            <div class="code-actions">
+                <button class="code-btn copy" onclick="copyCode('${wrapId}')">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="9" y="9" width="13" height="13" rx="2"/>
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                    </svg>Copier
+                </button>
+                <button class="code-btn run" onclick="runCode('${wrapId}')">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <polygon points="5 3 19 12 5 21 5 3"/>
+                    </svg>Exécuter
+                </button>
+            </div>
+        </div>
+        <pre class="code-pre">${escHtml(code)}</pre>
+    `;
+    document.getElementById('messages').appendChild(wrap);
+    scrollBottom();
+}
+
+function runCode(wrapId) {
+    const wrap = document.getElementById(wrapId);
+    const code = wrap.dataset.code;
+    currentPreviewCode = code;
+    document.getElementById('preview-iframe').srcdoc = code;
+    document.getElementById('fullscreen-preview').classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeFullscreenPreview() {
+    document.getElementById('fullscreen-preview').classList.remove('open');
+    document.getElementById('preview-iframe').srcdoc = '';
+    document.body.style.overflow = '';
+    currentPreviewCode = '';
+}
+
+function reloadFullscreenPreview() {
+    const iframe = document.getElementById('preview-iframe');
+    iframe.srcdoc = '';
+    setTimeout(() => { iframe.srcdoc = currentPreviewCode; }, 50);
+}
+
+function copyCode(wrapId) {
+    const wrap = document.getElementById(wrapId);
+    const code = wrap.dataset.code;
+    const btn = wrap.querySelector('.code-btn.copy');
+    const doSuccess = () => {
+        btn.textContent = '✓ Copié';
+        showToast();
+        setTimeout(() => {
+            btn.innerHTML = `<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+            </svg>Copier`;
+        }, 2000);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(doSuccess).catch(() => fallbackCopy(code, doSuccess));
+    } else {
+        fallbackCopy(code, doSuccess);
+    }
+}
+
+function fallbackCopy(text, onSuccess) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;width:1px;height:1px;';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    try { document.execCommand('copy'); onSuccess(); } catch(e) {}
+    document.body.removeChild(ta);
+}
+
+function showToast() {
+    const t = document.getElementById('toast');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function openModal(src) {
+    document.getElementById('modal-img').src = src;
+    document.getElementById('img-modal').classList.add('open');
+}
+
+function scrollBottom() {
+    const m = document.getElementById('messages');
+    m.scrollTop = m.scrollHeight;
+}
+
+function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setSending(v) {
+    document.getElementById('send-btn').disabled = v;
+    document.getElementById('user-input').disabled = v;
+}
+
+// ═══════════════════════════════════════════════════
+//  EVENTS
+// ═══════════════════════════════════════════════════
+document.getElementById('send-btn').addEventListener('click', () => {
+    const inp = document.getElementById('user-input');
+    const msg = inp.value.trim();
+    if (!msg) return;
+    inp.value = '';
+    inp.style.height = 'auto';
+    runAgent(msg);
+});
+
+document.getElementById('user-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('send-btn').click();
+    }
+});
+
+document.getElementById('user-input').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+document.getElementById('new-btn').addEventListener('click', () => {
+    if (confirm('Nouvelle conversation ? Tout sera effacé.')) hardReset();
+});
+
+document.getElementById('preview-close-btn').addEventListener('click', closeFullscreenPreview);
+document.getElementById('preview-reload-btn').addEventListener('click', reloadFullscreenPreview);
+
+document.getElementById('modal-close').addEventListener('click', () => {
+    document.getElementById('img-modal').classList.remove('open');
+});
+document.getElementById('img-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('img-modal'))
+        document.getElementById('img-modal').classList.remove('open');
+});
+
+window.addEventListener('popstate', () => {
+    if (document.getElementById('fullscreen-preview').classList.contains('open')) {
+        closeFullscreenPreview();
+    }
+});
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+addMsg('ai', 'Bonjour ! Décris-moi l\'application que tu veux créer. 🚀');
+</script>
+</body>
+</html>
